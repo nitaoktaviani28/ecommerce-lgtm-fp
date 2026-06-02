@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: your-acr.azurecr.io/ecommerce-frontend:latest  # Ganti dengan ACR kamu
+          image: haechanlovelove/ecommerce-frontend:sha-53e3bbb
           ports:
             - containerPort: 80
           resources:
