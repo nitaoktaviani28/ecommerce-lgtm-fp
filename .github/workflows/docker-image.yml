@@ -134,8 +134,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VITE_API_URL=http://ecommerce-backend.ecommerce.svc.cluster.local:8080
-            VITE_FARO_COLLECTOR_URL=http://alloy.monitoring.svc.cluster.local:12347/collect
+            VITE_API_URL=
+            VITE_FARO_COLLECTOR_URL=
             VITE_APP_NAME=ecommerce-frontend
             VITE_APP_VERSION=1.0.0
             VITE_APP_ENV=production
