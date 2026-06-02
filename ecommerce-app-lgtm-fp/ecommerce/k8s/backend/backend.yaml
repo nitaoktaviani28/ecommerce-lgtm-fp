@@ -1,0 +1,99 @@
+---
+# ConfigMap environment backend
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: ecommerce
+data:
+  PORT: "8080"
+  APP_ENV: "production"
+  DB_HOST: "postgres.ecommerce.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "ecommerce"
+  DB_SSLMODE: "disable"
+  # OpenTelemetry → Alloy di Cluster A → forward ke Tempo di Cluster B
+  OTEL_SERVICE_NAME: "ecommerce-backend"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://alloy.monitoring.svc.cluster.local:4318"
+  # Pyroscope di Cluster B via VNet Peering
+  PYROSCOPE_ENDPOINT: "http://pyroscope.monitoring.svc.cluster.local:4040"
+
+---
+# Secret untuk credentials DB backend
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: ecommerce
+type: Opaque
+stringData:
+  DB_USER: ecommerce
+  DB_PASSWORD: secret    # Ganti di production!
+
+---
+# Deployment Backend
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-backend
+  namespace: ecommerce
+  labels:
+    app: ecommerce-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecommerce-backend
+  template:
+    metadata:
+      labels:
+        app: ecommerce-backend
+      annotations:
+        # Alloy akan scrape /metrics endpoint ini
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: backend
+          image: your-acr.azurecr.io/ecommerce-backend:latest  # Ganti dengan ACR kamu
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: backend-config
+            - secretRef:
+                name: backend-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+---
+# Service Backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-backend
+  namespace: ecommerce
+spec:
+  selector:
+    app: ecommerce-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
