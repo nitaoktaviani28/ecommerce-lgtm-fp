@@ -15,14 +15,10 @@ import (
 )
 
 func main() {
-	// ─── 1. Inisialisasi Observability ───────────────────────────────────────
-	// Single entry point — tracing (Tempo), profiling (Pyroscope), metrics (Mimir).
-	// Tidak ada perubahan pada logika bisnis untuk mengaktifkan observability.
+	// 1. Init observability — tracing, profiling, metrics
 	observability.Init()
 
-	// ─── 2. Koneksi Database dengan Tracing ──────────────────────────────────
-	// OpenDBWithTracing membuka koneksi PostgreSQL yang diinstrumentasi otelsql.
-	// Setiap query SQL akan menghasilkan span child di Tempo secara otomatis.
+	// 2. Koneksi DB dengan tracing (trace sampai level query SQL)
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		observability.GetEnv("DB_HOST", "postgres.ecommerce.svc.cluster.local"),
@@ -35,53 +31,40 @@ func main() {
 
 	db, err := observability.OpenDBWithTracing(dsn)
 	if err != nil {
-		log.Fatalf("Gagal koneksi ke database: %v", err)
+		log.Fatalf("Gagal koneksi database: %v", err)
 	}
 	defer db.Close()
 
-	// Verifikasi koneksi DB
 	if err := db.Ping(); err != nil {
 		log.Fatalf("Database tidak dapat dijangkau: %v", err)
 	}
-	log.Println("Database connected with tracing enabled")
+	log.Println("Database connected with tracing")
 
-	// ─── 3. Inisialisasi Repository ──────────────────────────────────────────
+	// 3. Repository
 	productRepo := repository.NewProductRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
 
-	// ─── 4. Inisialisasi Handler ─────────────────────────────────────────────
+	// 4. Handlers
 	productHandler := handlers.NewProductHandler(productRepo)
 	orderHandler := handlers.NewOrderHandler(orderRepo, productRepo)
 
-	// ─── 5. Setup Router ─────────────────────────────────────────────────────
+	// 5. Router
 	mux := http.NewServeMux()
-
-	// Health check — digunakan oleh Kubernetes liveness & readiness probe
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
-
-	// Metrics endpoint — di-scrape oleh Alloy untuk dikirim ke Mimir
 	mux.Handle("/metrics", promhttp.Handler())
-
-	// Product endpoints
 	mux.HandleFunc("/api/products", productHandler.GetProducts)
 	mux.HandleFunc("/api/products/", productHandler.GetProduct)
-
-	// Order endpoints
 	mux.HandleFunc("/api/orders", orderHandler.CreateOrder)
 	mux.HandleFunc("/api/orders/", orderHandler.GetOrder)
-
-	// User orders
 	mux.HandleFunc("/api/users/", orderHandler.GetUserOrders)
 
-	// ─── 6. Apply Middleware ──────────────────────────────────────────────────
-	// Telemetry middleware: OTel tracing + Prometheus metrics + structured logging
-	// CORS middleware: izinkan request dari FE Vue.js
+	// 6. Middleware: tracing + metrics + CORS
 	handler := middleware.Telemetry(middleware.CORS(mux))
 
-	// ─── 7. Start Server ─────────────────────────────────────────────────────
+	// 7. Start server
 	port := observability.GetEnv("PORT", "8080")
 	log.Printf("Server running on :%s", port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {

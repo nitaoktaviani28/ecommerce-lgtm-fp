@@ -4,49 +4,25 @@
       <h1>🛒 Ecommerce FP</h1>
       <p>Belanja produk terbaik dengan harga terjangkau</p>
     </header>
-
-    <!-- Category Filter -->
     <div class="categories">
-      <button
-        v-for="cat in categories"
-        :key="cat.value"
+      <button v-for="cat in categories" :key="cat.value"
         :class="['cat-btn', { active: selectedCategory === cat.value }]"
-        @click="selectCategory(cat.value)"
-      >
-        {{ cat.label }}
-      </button>
+        @click="selectCategory(cat.value)">{{ cat.label }}</button>
     </div>
-
-    <!-- Loading -->
     <div v-if="loading" class="loading">Memuat produk...</div>
-
-    <!-- Error -->
     <div v-else-if="error" class="error">{{ error }}</div>
-
-    <!-- Product Grid -->
     <div v-else class="product-grid">
-      <div
-        v-for="product in products"
-        :key="product.id"
-        class="product-card"
-        @click="goToProduct(product.id)"
-      >
+      <div v-for="product in products" :key="product.id" class="product-card" @click="$router.push(`/products/${product.id}`)">
         <div class="product-category">{{ product.category }}</div>
         <h3>{{ product.name }}</h3>
         <p class="product-desc">{{ product.description }}</p>
         <div class="product-footer">
           <span class="price">Rp {{ formatPrice(product.price) }}</span>
-          <span :class="['stock', product.stock < 5 ? 'low' : '']">
-            Stok: {{ product.stock }}
-          </span>
+          <span :class="['stock', product.stock < 5 ? 'low' : '']">Stok: {{ product.stock }}</span>
         </div>
-        <button class="btn-add" @click.stop="addToCart(product)">
-          + Keranjang
-        </button>
+        <button class="btn-add" @click.stop="cartStore.addItem(product)">+ Keranjang</button>
       </div>
     </div>
-
-    <!-- Cart Badge -->
     <div class="cart-fab" @click="$router.push('/cart')">
       🛒 <span class="badge">{{ cartStore.totalItems }}</span>
     </div>
@@ -55,18 +31,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi'
 import { useCartStore } from '@/stores/cart'
-import { getFaro } from '@/observability/faro'
 
-const router = useRouter()
 const { getProducts, loading, error } = useApi()
 const cartStore = useCartStore()
-
 const products = ref([])
 const selectedCategory = ref('')
-
 const categories = [
   { label: 'Semua', value: '' },
   { label: 'Elektronik', value: 'electronics' },
@@ -76,38 +47,16 @@ const categories = [
   { label: 'Outdoor', value: 'outdoor' },
 ]
 
-async function loadProducts(category = '') {
-  try {
-    products.value = await getProducts(category)
-
-    // Track page view dengan Faro
-    getFaro()?.api.pushEvent('products_viewed', {
-      category: category || 'all',
-      count: String(products.value.length),
-    })
-  } catch {
-    // error sudah dihandle di useApi, Faro otomatis capture
-  }
-}
-
-function selectCategory(category) {
+async function selectCategory(category) {
   selectedCategory.value = category
-  loadProducts(category)
-}
-
-function goToProduct(id) {
-  router.push(`/products/${id}`)
-}
-
-function addToCart(product) {
-  cartStore.addItem(product)
+  try { products.value = await getProducts(category) } catch {}
 }
 
 function formatPrice(price) {
   return new Intl.NumberFormat('id-ID').format(price)
 }
 
-onMounted(() => loadProducts())
+onMounted(() => selectCategory(''))
 </script>
 
 <style scoped>
@@ -126,7 +75,7 @@ onMounted(() => loadProducts())
 .price { font-weight: 700; color: #4f46e5; font-size: 1.1rem; }
 .stock { font-size: 12px; color: #10b981; }
 .stock.low { color: #ef4444; }
-.btn-add { width: 100%; padding: 10px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+.btn-add { width: 100%; padding: 10px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
 .btn-add:hover { background: #4338ca; }
 .cart-fab { position: fixed; bottom: 24px; right: 24px; background: #4f46e5; color: white; padding: 16px 20px; border-radius: 50px; cursor: pointer; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(79,70,229,0.4); }
 .badge { background: #ef4444; border-radius: 50%; padding: 2px 7px; font-size: 12px; margin-left: 4px; }

@@ -1,12 +1,10 @@
 <template>
   <div class="cart">
     <h2>🛒 Keranjang Belanja</h2>
-
     <div v-if="cartStore.items.length === 0" class="empty">
       <p>Keranjang kosong</p>
       <button class="btn-primary" @click="$router.push('/')">Belanja Sekarang</button>
     </div>
-
     <div v-else>
       <div v-for="item in cartStore.items" :key="item.product.id" class="cart-item">
         <div class="item-info">
@@ -19,26 +17,18 @@
           <button class="btn-remove" @click="cartStore.removeItem(item.product.id)">✕</button>
         </div>
       </div>
-
       <div class="cart-summary">
         <div class="total">
           <span>Total</span>
           <span class="total-price">Rp {{ formatPrice(cartStore.totalPrice) }}</span>
         </div>
-
         <div class="user-id-input">
-          <label>User ID (simulasi login):</label>
+          <label>User ID:</label>
           <input v-model="userId" type="number" placeholder="Contoh: 1" />
         </div>
-
-        <button
-          class="btn-checkout"
-          :disabled="loading || !userId"
-          @click="checkout"
-        >
+        <button class="btn-checkout" :disabled="loading || !userId" @click="checkout">
           {{ loading ? 'Memproses...' : 'Checkout Sekarang' }}
         </button>
-
         <div v-if="error" class="error">{{ error }}</div>
       </div>
     </div>
@@ -58,32 +48,19 @@ const { createOrder, loading, error } = useApi()
 const userId = ref(1)
 
 async function checkout() {
-  // Track checkout attempt dengan Faro
   getFaro()?.api.pushEvent('checkout_initiated', {
     total_price: String(cartStore.totalPrice),
     item_count: String(cartStore.totalItems),
   })
-
   try {
     const order = await createOrder({
       user_id: Number(userId.value),
-      items: cartStore.items.map(i => ({
-        product_id: i.product.id,
-        quantity: i.quantity,
-      })),
+      items: cartStore.items.map(i => ({ product_id: i.product.id, quantity: i.quantity })),
     })
-
-    // Track checkout success
-    getFaro()?.api.pushEvent('checkout_completed', {
-      order_id: String(order.id),
-      total_price: String(order.total_price),
-    })
-
+    getFaro()?.api.pushEvent('checkout_completed', { order_id: String(order.id) })
     cartStore.clearCart()
     router.push(`/orders/${order.id}`)
-  } catch {
-    // error & Faro capture otomatis di useApi
-  }
+  } catch {}
 }
 
 function formatPrice(price) {
@@ -107,9 +84,8 @@ function formatPrice(price) {
 .user-id-input { margin-bottom: 16px; }
 .user-id-input label { display: block; margin-bottom: 6px; font-size: 14px; color: #6b7280; }
 .user-id-input input { width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 16px; }
-.btn-checkout { width: 100%; padding: 14px; background: #10b981; color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-.btn-checkout:hover:not(:disabled) { background: #059669; }
+.btn-checkout { width: 100%; padding: 14px; background: #10b981; color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; }
 .btn-checkout:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-primary { padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-top: 16px; }
+.btn-primary { padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 16px; }
 .error { color: #ef4444; margin-top: 12px; text-align: center; }
 </style>
