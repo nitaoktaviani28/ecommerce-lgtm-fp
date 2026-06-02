@@ -9,12 +9,15 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # Job 1: Build & Push Backend (Go)
+  # Job 1: Build & Push Backend (Go) — multi-platform
   # ─────────────────────────────────────────────────────────────
   build-backend:
     name: Build Backend
@@ -34,11 +37,13 @@ jobs:
           go-version: '1.22'
 
       - name: Fix go.mod — remove invalid semconv entry
-        run: |
-          sed -i '/go.opentelemetry.io\/otel\/semconv\/v1.21.0/d' go.mod
+        run: sed -i '/go.opentelemetry.io\/otel\/semconv\/v1.21.0/d' go.mod
 
       - name: Generate go.sum
         run: go mod tidy
+
+      - name: Set up QEMU (untuk cross-compile ARM)
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -63,6 +68,7 @@ jobs:
         with:
           context: ecommerce-app-lgtm-fp/ecommerce/backend
           file: ecommerce-app-lgtm-fp/ecommerce/backend/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -70,10 +76,10 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Image digest
-        run: echo "Backend image pushed ${{ steps.meta.outputs.tags }}"
+        run: echo "✅ Backend pushed ${{ steps.meta.outputs.tags }}"
 
   # ─────────────────────────────────────────────────────────────
-  # Job 2: Build & Push Frontend (Vue.js)
+  # Job 2: Build & Push Frontend (Vue.js) — multi-platform
   # ─────────────────────────────────────────────────────────────
   build-frontend:
     name: Build Frontend
@@ -94,6 +100,9 @@ jobs:
 
       - name: Generate package-lock.json
         run: npm install
+
+      - name: Set up QEMU (untuk cross-compile ARM)
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -118,6 +127,7 @@ jobs:
         with:
           context: ecommerce-app-lgtm-fp/ecommerce/frontend
           file: ecommerce-app-lgtm-fp/ecommerce/frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -131,7 +141,7 @@ jobs:
             VITE_APP_ENV=production
 
       - name: Image digest
-        run: echo "Frontend image pushed ${{ steps.meta.outputs.tags }}"
+        run: echo "✅ Frontend pushed ${{ steps.meta.outputs.tags }}"
 
   # ─────────────────────────────────────────────────────────────
   # Job 3: Update K8s manifest image tag (hanya di main)
