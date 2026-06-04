@@ -7,6 +7,7 @@ import (
 	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
@@ -44,6 +45,16 @@ func initTracing() error {
 	)
 
 	otel.SetTracerProvider(tp)
+
+	// Set propagator untuk membaca W3C traceparent header dari FE (Faro)
+	// Tanpa ini, trace FE dan BE tidak terhubung meski traceparent sudah dikirim
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{}, // baca/tulis W3C traceparent header
+			propagation.Baggage{},      // baca/tulis W3C baggage header
+		),
+	)
+
 	return nil
 }
 
