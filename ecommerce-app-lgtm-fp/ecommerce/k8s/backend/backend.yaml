@@ -56,7 +56,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: haechanlovelove/ecommerce-backend:sha-2d0878e
+          image: haechanlovelove/ecommerce-backend:sha-9a486a0
           ports:
             - containerPort: 8080
           envFrom:

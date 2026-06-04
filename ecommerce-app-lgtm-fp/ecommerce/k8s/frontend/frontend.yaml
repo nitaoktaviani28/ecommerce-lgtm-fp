@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: haechanlovelove/ecommerce-frontend:sha-2d0878e
+          image: haechanlovelove/ecommerce-frontend:sha-9a486a0
           ports:
             - containerPort: 80
           resources:
